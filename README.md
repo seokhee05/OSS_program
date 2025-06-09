@@ -20,9 +20,9 @@
 pip install matplotlib
 
 음성 인식을 위해 다음을 입력하여 설치
-pip install speechrecognition
-pip install pyaudio  # 설치 오류 시 → pip install pipwin && pipwin install pyaudio
-pip install matplotlib
+1. pip install speechrecognition
+2. pip install pyaudio  # 설치 오류 시 → pip install pipwin && pipwin install pyaudio
+3. pip install matplotlib
     
 입출력 형태 : 
 대부분은 input()을 사용하여 날짜(YYYY-MM-DD), 항목명(문자열), **금액(숫자)**을 받는다 
