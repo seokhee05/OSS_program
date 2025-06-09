@@ -196,6 +196,211 @@ def edit_expense():
     else:
         print("해당 지출을 찾을 수 없습니다.\n")
 
+# 6. 연간 지출 비교
+def annual_comparison():
+    if not os.path.exists(DATA_FILE):
+        print("기록 없음.\n")
+        return
+    year_totals = {}
+    with open(DATA_FILE, mode='r', encoding='utf-8') as file:
+        reader = csv.reader(file)
+        next(reader)
+        for row in reader:
+            try:
+                year = datetime.strptime(row[0], "%Y-%m-%d").year
+                amount = int(row[2])
+            except:
+                continue
+            year_totals[year] = year_totals.get(year, 0) + amount
+    print("연간 지출:")
+    for year in sorted(year_totals.keys()):
+        print(f"- {year}년: {year_totals[year]}원")
+    print()
+
+# 7. 지출 검색
+def search_expenses():
+    if not os.path.exists(DATA_FILE):
+        print("기록 없음.\n")
+        return
+    keyword = input("검색어 (항목명 또는 날짜 일부): ").strip()
+    results = []
+    with open(DATA_FILE, mode='r', encoding='utf-8') as file:
+        reader = csv.reader(file)
+        next(reader)
+        for row in reader:
+            if keyword in row[0] or keyword in row[1]:
+                results.append(row)
+    if results:
+        print(f"'{keyword}' 검색 결과:")
+        for row in results:
+            print(f"- {row[0]} | {row[1]} | {row[2]}원")
+    else:
+        print("해당 결과 없음.\n")
+    print()
+
+# 8. 지출 그래프 보기
+def show_graph():
+    if not os.path.exists(DATA_FILE):
+        print("기록 없음.\n")
+        return
+    
+    year_month_totals = {}
+    with open(DATA_FILE, mode='r', encoding='utf-8') as file:
+        reader = csv.reader(file)
+        next(reader)
+        for row in reader:
+            try:
+                dt = datetime.strptime(row[0], "%Y-%m-%d")
+                amount = int(row[2].replace(",", ""))
+                ym = f"{dt.year}년 {dt.month}월"
+                year_month_totals[ym] = year_month_totals.get(ym, 0) + amount
+            except:
+                continue
+    
+    if not year_month_totals:
+        print("시각화할 데이터 없음.\n")
+        return
+# 월별 평균 계산
+    year_totals = {}
+    year_counts = {}
+    for ym, total in year_month_totals.items():
+        year = ym.split("년")[0]
+        year_totals[year] = year_totals.get(year, 0) + total
+        year_counts[year] = year_counts.get(year, 0) + 1
+    year_averages = {year: year_totals[year]/year_counts[year] for year in year_totals}
+
+    sorted_keys = sorted(year_month_totals.keys(), key=lambda x: (int(x.split("년")[0]), int(x.split()[1].replace("월",""))))
+
+    values = [year_month_totals[k] for k in sorted_keys]
+
+    plt.figure(figsize=(12, 7))
+    bars = plt.barh(sorted_keys, values, color='skyblue')
+
+    plt.xlabel("지출 금액 (원)")
+    plt.title("연도별 월별 지출 내역 및 연평균 표시")
+    plt.grid(axis='x', linestyle='--', alpha=0.7)
+
+    years = sorted(year_averages.keys())
+    for year in years:
+        ys = [i for i, label in enumerate(sorted_keys) if label.startswith(year)]
+        if not ys:
+            continue
+        avg = year_averages[year]
+        plt.hlines(y=(ys[0] + ys[-1]) / 2, xmin=0, xmax=avg, colors='red', linestyles='dashed', label=f"{year}년 평균 {int(avg):,}원")
+
+    handles, labels = plt.gca().get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    plt.legend(by_label.values(), by_label.keys())
+
+    plt.tight_layout()
+    plt.show()
+
+# 9. 음성 인식으로 지출 기록
+def recognize_speech():
+    r = sr.Recognizer()
+    with sr.Microphone() as source:
+        print("🎙️ 말씀해주세요 (예: '2025년 6월 5일 커피 3000원')...")
+        audio = r.listen(source)
+    try:
+        text = r.recognize_google(audio, language="ko-KR")
+        print(f"📝 인식된 문장: {text}")
+        return text
+    except sr.UnknownValueError:
+        print("⚠️ 음성을 이해하지 못했습니다.")
+    except sr.RequestError:
+        print("⚠️ Google 음성 인식 서비스 연결 실패.")
+    return None
+
+# 10. 음성 인식된 문장을 날짜/항목/금액으로 분리
+def parse_voice_input(text):
+    date_match = re.search(r"(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일", text)
+    if not date_match:
+        print("⚠️ 날짜 인식 실패")
+        return None
+    year, month, day = date_match.groups()
+    date = f"{int(year):04d}-{int(month):02d}-{int(day):02d}"
+    remaining_text = re.sub(r"\d{4}년\s*\d{1,2}월\s*\d{1,2}일", "", text)
+    item_match = re.search(r"([가-힣\s]+?)\s*(\d{1,3}(?:,\d{3})*|\d+)\s*원", remaining_text)
+    if item_match:
+        item = item_match.group(1).strip()
+        amount = item_match.group(2).replace(",", "").strip()
+        return date, item, amount
+    else:
+        print("⚠️ 항목 또는 금액 인식 실패")
+        return None
+
+# 11. 음성으로 지출 입력
+def voice_expense_entry():
+    speech = recognize_speech()
+    if speech:
+        parsed = parse_voice_input(speech)
+        if parsed:
+            date, item, amount = parsed
+            print(f"추출된 정보 → 날짜: {date}, 항목: {item}, 금액: {amount}원")
+            with open(DATA_FILE, mode='a', newline='', encoding='utf-8') as file:
+                writer = csv.writer(file)
+                writer.writerow([date, item, amount])
+            print("✅ 음성 입력으로 저장 완료!\n")
+        else:
+            print("⚠️ 음성에서 날짜/항목/금액을 인식하지 못했습니다.\n")
+
+# 12. 지출 패턴 분석 및 그래프
+def analyze_patterns():
+    if not os.path.exists(DATA_FILE):
+        print("기록이 없습니다.\n")
+        return
+    
+    category_totals = {}
+    category_counts = {}
+    monthly_totals = {}
+    monthly_counts = {}
+
+    with open(DATA_FILE, mode='r', encoding='utf-8') as file:
+        reader = csv.reader(file)
+        next(reader)
+        for row in reader:
+            try:
+                date_obj = datetime.strptime(row[0], "%Y-%m-%d")
+                amount = int(row[2])
+                category = row[1]
+            except:
+                continue
+            
+            # 항목별 합계 및 횟수
+            category_totals[category] = category_totals.get(category, 0) + amount
+            category_counts[category] = category_counts.get(category, 0) + 1
+            
+            # 월별 합계 및 횟수 (YYYY-MM)
+            ym = date_obj.strftime("%Y-%m")
+            monthly_totals[ym] = monthly_totals.get(ym, 0) + amount
+            monthly_counts[ym] = monthly_counts.get(ym, 0) + 1
+    
+    print("=== 항목별 지출 패턴 분석 ===")
+    for cat in category_totals:
+        avg = category_totals[cat] / category_counts[cat]
+        print(f"- {cat}: 총 {category_totals[cat]}원, {category_counts[cat]}회, 평균 {avg:.0f}원")
+    print()
+    
+    print("=== 월별 지출 패턴 분석 ===")
+    sorted_months = sorted(monthly_totals.keys())
+    for ym in sorted_months:
+        avg = monthly_totals[ym] / monthly_counts[ym]
+        print(f"- {ym}: 총 {monthly_totals[ym]}원, {monthly_counts[ym]}회, 평균 {avg:.0f}원")
+    print()
+    
+# 그래프 출력
+    months = sorted_months
+    averages = [monthly_totals[m] / monthly_counts[m] for m in months]
+    
+    plt.figure(figsize=(10,5))
+    plt.plot(months, averages, marker='o', linestyle='-', color='purple')
+    plt.title("월별 평균 지출 패턴")
+    plt.xlabel("월")
+    plt.ylabel("평균 지출액 (원)")
+    plt.xticks(rotation=45)
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.tight_layout()
+    plt.show()
 
 # 메뉴 출력
 def menu():
@@ -229,6 +434,19 @@ def main():
             delete_expense()
         elif choice == '5':
             edit_expense()
+        elif choice == '6':
+            annual_comparison()
+        elif choice == '7':
+            search_expenses()
+        elif choice == '8':
+            show_graph()
+        elif choice == '9':
+            voice_expense_entry()
+        elif choice == '10':
+            analyze_patterns()
+        elif choice == '11':
+            print("프로그램을 종료합니다.")
+            break
         else:
             print("잘못된 입력입니다. 다시 선택해주세요.\n")
 
