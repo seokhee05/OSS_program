@@ -15,4 +15,15 @@
 9. 음성으로 지출 입력
 10. 지출 패턴 분석
 11. 종료
-입출력 형태 : 대부분은 input()을 사용하여 날짜(YYYY-MM-DD), 항목명(문자열), **금액(숫자)**을 받는다 음성 입력은 "2025년 6월 5일 커피 3000원" 같은 문장을 말하면 자동으로 입력되어 저장되고, 날짜는 datetime.strptime()로 유효성 검사를 수행한다.
+
+그래프 보기 위해 다음을 입력하여 설치
+pip install matplotlib
+
+음성 인식을 위해 다음을 입력하여 설치
+pip install speechrecognition
+pip install pyaudio  # 설치 오류 시 → pip install pipwin && pipwin install pyaudio
+pip install matplotlib
+    
+입출력 형태 : 
+대부분은 input()을 사용하여 날짜(YYYY-MM-DD), 항목명(문자열), **금액(숫자)**을 받는다 
+음성 입력은 "2025년 6월 5일 커피 3000원" 같은 문장을 말하면 자동으로 입력되어 저장되고, 날짜는 datetime.strptime()로 유효성 검사를 수행한다.
